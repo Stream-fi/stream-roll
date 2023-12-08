@@ -11,7 +11,7 @@ type User = {
   staticBalance: number;
   netFlow: number;
   lastUpdate: number;
-  liquidationTime?: number;
+  liquidationTime: number;
   streams: Stream[];
 }
 
@@ -38,7 +38,7 @@ export interface FlowUpActionInput {
     stream?: {
       flowRate?: number;
     };
-    to: string;
+    to: string; // this is mandatory. If mint/burn, use same address as from
   }
   nonce: number;
   actualTimestamp: number; // this is the timestamp of the block that the action is included in
@@ -70,6 +70,9 @@ export const flowupSTF: STF<FlowUpNetwork, FlowUpActionInput> = {
 
   apply(inputs: FlowUpActionInput, state: FlowUpNetwork): void {
     let newState = state.getState();
+    // this sorts the users array by liquidation time. In place.
+    newState.users.sort((a, b) => a.liquidationTime - b.liquidationTime);
+
     let senderIndex = newState.users.findIndex(
       (account) => account.address === inputs.from
     );
@@ -112,6 +115,11 @@ export const flowupSTF: STF<FlowUpNetwork, FlowUpActionInput> = {
       if (streamIndex !== -1) {
         throw new Error("Stream already exists");
       }
+      // check that sender has sufficient balance
+      if (balanceOf(senderIndex) < flowRate) {
+        throw new Error("Insufficient balance");
+      };
+
       // settle sender account
       settleAccount(senderIndex);
       // settle receiver account
@@ -145,13 +153,36 @@ export const flowupSTF: STF<FlowUpNetwork, FlowUpActionInput> = {
       // delete stream from database
       newState.users[senderIndex].streams.splice(streamIndex, 1);
     }
+    function updateLiquidationTimestamp(index: number) {
+      const account = newState.users[index];
+      const netFlow = account.netFlow;
+      const staticBalance = account.staticBalance;
+      const liquidationTime = Math.floor(staticBalance / -netFlow)
+      newState.users[index].liquidationTime = liquidationTime;
+    }
+    
+    const receiverIndex = newState.users.findIndex(
+      (account) => account.address === inputs.params.to
+    );
+
+    // here we should check that we can move time forward to the actualTimestamp
+    // if we can't, we have to cleanup the state first
+        
+    let i = 0;
+    while(newState.users[i].liquidationTime < inputs.actualTimestamp) {
+      // sends time forward to liquidation time of next account
+      newState.localTimestamp = newState.users[i].liquidationTime;
+      // closes all of the streams of the account
+      newState.users[i].streams.forEach((stream) => {
+        deleteStream(i, receiverIndex);
+      });
+      // keeps going until we reach the account that has liquidation time after the actualTimestamp
+      i++;
+    }
+    newState.localTimestamp = inputs.actualTimestamp;
 
     if(inputs.type.hasOwnProperty("stream")) {
-      newState.localTimestamp = inputs.actualTimestamp;
       const flowRate = inputs.params.stream?.flowRate || 0;
-      const receiverIndex = newState.users.findIndex(
-        (account) => account.address === inputs.params.to
-      );
       if (inputs.type.stream == "create") {
         sendStream(senderIndex, receiverIndex, flowRate);
       }
@@ -183,6 +214,9 @@ export const flowupSTF: STF<FlowUpNetwork, FlowUpActionInput> = {
         newState.users[receiverIndex].staticBalance += amount!;
       }
     }
+    // update liquidation time
+    updateLiquidationTimestamp(senderIndex);
+    receiverIndex !== senderIndex && updateLiquidationTimestamp(receiverIndex);
     state.transport.allAccounts = newState;
   },
 };

@@ -91,7 +91,7 @@ app.post("/", async (req: Request, res: Response) => {
 
   try {
     console.log(req.body);
-    let newObj = { ...req.body.payload, actualTimestamp: Date.now() };
+    let newObj = { ...req.body.payload, actualTimestamp: Math.ceil((Date.now())/1000) };
     req.body.payload = newObj;
     console.log(req.body);
     const newAction = schema.newAction(req.body);
