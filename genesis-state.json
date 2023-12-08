@@ -1,1 +1,12 @@
-{ "state": 0 }
+{
+  "state": [
+    {
+      "address": "0x979955aD4c50F5800EcA3B598dB60fE6A39C4e8C",
+      "balance": 100
+    },
+    {
+      "address": "0x77be990390F62369b2b237D96aB577b3e63CC683",
+      "balance": 100
+    }
+  ]
+}

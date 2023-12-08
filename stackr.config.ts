@@ -9,7 +9,7 @@ const stackrConfig: StackrConfig = {
     appInbox: deployment.app_inbox,
   },
   builder: {
-    batchSize: 16,
+    batchSize: 1,
     batchTime: 1000,
   },
   syncer: {
@@ -21,16 +21,16 @@ const stackrConfig: StackrConfig = {
     accounts: [
       {
         privateKey:
-          "<APP-OPERATOR-KEY>",
+          "5af06e43a75c9b82bb469f050a882f33aa9d628453cd2d2f31d0ca822e38cc6f",
         purpose: KeyPurpose.BATCH,
         scheme: SignatureScheme.ECDSA,
       },
     ],
   },
   domain: {
-    name: "Stackr MVP v0",
+    name: "KeeperNetwork",
     version: "1",
-    chainId: 1,
+    chainId: 69420,
     verifyingContract: deployment.app_inbox,
     salt: "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
   },
