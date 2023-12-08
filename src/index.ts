@@ -81,6 +81,20 @@ app.get("/", (req: Request, res: Response) => {
   res.send({ allAccounts: state.get().state.getState() });
 });
 
+// get endpoint for getting the state of a particular user
+app.get("/:address", (req: Request, res: Response) => {
+  const address = req.params.address;
+  const allAccounts = state.get().state.getState();
+  const user = allAccounts.users.find((user) => user.address === address);
+  if (user) {
+    const balance = user?.staticBalance + user?.netFlow * (Math.ceil((Date.now())/1000) - user?.lastUpdate);
+    let result = {...user, balance};
+    res.send({ result });
+  } else {
+    res.status(404).send({ message: "user not found" });
+  }
+});
+
 app.post("/", async (req: Request, res: Response) => {
   const schema = actions.getSchema("update-flowup");
 
