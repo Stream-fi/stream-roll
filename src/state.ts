@@ -11,7 +11,7 @@ interface StateTransport {
 }
 
 export interface KeeperActionInput {
-  type: "mint" | "burn" | "transfer" | "createAccount";
+  type: "mint" | "burn" | "transfer";
   from: string;
   to?: string;
   amount?: number;
@@ -44,11 +44,17 @@ export const keeperSTF: STF<KeeperNetwork, KeeperActionInput> = {
 
   apply(inputs: KeeperActionInput, state: KeeperNetwork): void {
     let newState = state.getState();
-    const senderIndex = newState.findIndex(
+    let senderIndex = newState.findIndex(
       (account) => account.address === inputs.from
     );
     if (senderIndex === -1) {
-      throw new Error("Account not found");
+      newState.push({
+        address: inputs.from,
+        balance: 0,
+      });
+      senderIndex = newState.findIndex(
+        (account) => account.address === inputs.from
+      );
     }
     switch (inputs.type) {
       case "mint":
@@ -70,12 +76,12 @@ export const keeperSTF: STF<KeeperNetwork, KeeperActionInput> = {
         newState[senderIndex].balance -= inputs.amount!;
         newState[receiverIndex].balance += inputs.amount!;
         break;
-      case "createAccount":
-        newState.push({
-          address: inputs.from,
-          balance: 0,
-        });
-        break;
+      // case "createAccount":
+      //   newState.push({
+      //     address: inputs.from,
+      //     balance: 0,
+      //   });
+      //   break;
     }
     state.transport.allAccounts = newState;
   },
