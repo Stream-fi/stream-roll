@@ -44,6 +44,15 @@ export interface FlowUpActionInput {
   actualTimestamp: number; // this is the timestamp of the block that the action is included in
 }
 
+const emptyUser: (address: string) => User = (address: string) => ({
+  address,
+  staticBalance: 0,
+  netFlow: 0,
+  lastUpdate: 0,
+  liquidationTime: 10000000000000,
+  streams: []
+});
+
 export class FlowUpNetwork extends RollupState<StateVariable, StateTransport> {
   constructor(accounts: StateVariable) {
     super(accounts);
@@ -71,24 +80,22 @@ export const flowupSTF: STF<FlowUpNetwork, FlowUpActionInput> = {
   apply(inputs: FlowUpActionInput, state: FlowUpNetwork): void {
     let newState = state.getState();
     // this sorts the users array by liquidation time. In place.
-    newState.users.sort((a, b) => a.liquidationTime - b.liquidationTime);
-
-    let senderIndex = newState.users.findIndex(
-      (account) => account.address === inputs.from
-    );
-    // this creates a new user if the sender is not found
-    if (senderIndex === -1) {
-      newState.users.push({
-        address: inputs.from,
-        staticBalance: 0,
-        netFlow: 0,
-        lastUpdate: 0, // replace with current timestamp
-        streams: []
-      });
-      senderIndex = newState.users.findIndex(
-        (account) => account.address === inputs.from
-      );
+    function sortUsers() {
+      newState.users.sort((a, b) => a.liquidationTime - b.liquidationTime);
     }
+    function findOrCreateUser(address: string) : number {
+      let index = newState.users.findIndex(
+        (account) => account.address === address
+      );
+      if (index === -1) {
+        index = newState.users.push(emptyUser(address)) -1;
+      }
+      return index;
+    }
+    
+    let senderIndex = findOrCreateUser(inputs.from);
+    let receiverIndex = senderIndex;
+    if(inputs.from !== inputs.params.to) receiverIndex = findOrCreateUser(inputs.params.to);
 
     function balanceOf(index: number) { //view function
       const account = newState.users[index];
@@ -156,32 +163,47 @@ export const flowupSTF: STF<FlowUpNetwork, FlowUpActionInput> = {
     function updateLiquidationTimestamp(index: number) {
       const account = newState.users[index];
       const netFlow = account.netFlow;
-      const staticBalance = account.staticBalance;
-      const liquidationTime = Math.floor(staticBalance / -netFlow)
-      newState.users[index].liquidationTime = liquidationTime;
+      const balance = balanceOf(index);
+      let liquidationTime = newState.users[index].liquidationTime;
+      if (netFlow < 0){
+        // user is losing money, set liquidation time to the time when balance will be 0
+        liquidationTime = newState.localTimestamp + Math.floor(balance / -netFlow);
+        newState.users[index].liquidationTime = liquidationTime;
+      }
+      if(liquidationTime < 0) {
+        throw new Error("Liquidation time cannot be negative");
+      }
     }
     
-    const receiverIndex = newState.users.findIndex(
-      (account) => account.address === inputs.params.to
-    );
-
     // here we should check that we can move time forward to the actualTimestamp
     // if we can't, we have to cleanup the state first
-        
-    let i = 0;
-    while(newState.users[i].liquidationTime < inputs.actualTimestamp) {
-      // sends time forward to liquidation time of next account
-      newState.localTimestamp = newState.users[i].liquidationTime;
-      // closes all of the streams of the account
-      newState.users[i].streams.forEach((stream) => {
-        deleteStream(i, receiverIndex);
-      });
-      // keeps going until we reach the account that has liquidation time after the actualTimestamp
-      i++;
+    console.log("localTimestamp: ", newState.localTimestamp);
+    console.log("actualTimestamp: ", inputs.actualTimestamp);
+    // in theory, actualTimestamp should always be greater than localTimestamp
+    if(newState.localTimestamp > inputs.actualTimestamp) {
+      throw new Error("Cannot move time backwards");
     }
+    // if actualTimestamp is greater than the liquidation time of the first account in the array, we have to cleanup the state
+    do {
+      console.log("liquidation time: ", newState.users[0].liquidationTime);
+      if(newState.users[0].liquidationTime < inputs.actualTimestamp) {
+        console.log("INSOLVENT ACCOUNT");
+        console.log("insolvent account: ", newState.users[0].address, " liquidation time: ", newState.users[0].liquidationTime);
+        // closes all of the streams of the account
+        newState.users[0].streams.forEach((stream) => {
+          let toIndex = findOrCreateUser(stream.to);
+          deleteStream(0, toIndex);
+          updateLiquidationTimestamp(toIndex);
+        });
+        updateLiquidationTimestamp(0);
+        // sorts the array again
+        sortUsers();
+      }
+    } while(newState.users[0].liquidationTime < inputs.actualTimestamp);
+
     newState.localTimestamp = inputs.actualTimestamp;
 
-    if(inputs.type.hasOwnProperty("stream")) {
+    if(inputs.type.stream == "create" || inputs.type.stream == "update" || inputs.type.stream == "delete") {
       const flowRate = inputs.params.stream?.flowRate || 0;
       if (inputs.type.stream == "create") {
         sendStream(senderIndex, receiverIndex, flowRate);
@@ -193,20 +215,16 @@ export const flowupSTF: STF<FlowUpNetwork, FlowUpActionInput> = {
         deleteStream(senderIndex, receiverIndex);
       }
     }
-    else if(inputs.type.hasOwnProperty("move")) {
+    else if(inputs.type.move == "mint" || inputs.type.move == "burn" || inputs.type.move == "transfer") {
       // @ts-ignore
       let amount = inputs.params.move.amount;
+      console.log("AMOUNT: ", amount);
       if (inputs.type.move == "mint") {
+        console.log("MINTEEEING, ", amount, " to ", inputs.from, " index: ", senderIndex);
         newState.users[senderIndex].staticBalance += amount;
       } else if(inputs.type.move == "burn") {
         newState.users[senderIndex].staticBalance -= amount;
       } else if(inputs.type.move == "transfer") {
-        const receiverIndex = newState.users.findIndex(
-          (account) => account.address === inputs.params.to
-        );
-        if (receiverIndex === -1) {
-          throw new Error("Receiver account not found");
-        }
         if (balanceOf(senderIndex) < amount) {
           throw new Error("Insufficient balance");
         }
@@ -217,6 +235,7 @@ export const flowupSTF: STF<FlowUpNetwork, FlowUpActionInput> = {
     // update liquidation time
     updateLiquidationTimestamp(senderIndex);
     receiverIndex !== senderIndex && updateLiquidationTimestamp(receiverIndex);
+    sortUsers();
     state.transport.allAccounts = newState;
   },
 };

@@ -1,6 +1,16 @@
 import { ethers } from "ethers";
 import { stackrConfig } from "../stackr.config";
 import { ActionSchema } from "@stackr/stackr-js";
+import {
+  actionSchemaType,
+  mint,
+  burn,
+  transfer,
+  createStream,
+  updateStream,
+  deleteStream,
+} from "./txTypes";
+import { HDNodeWallet } from "ethers";
 
 const actionSchemaType = {
   from: "String",
@@ -27,7 +37,7 @@ const getData = async (nonce: number) => {
     "8bc97316dc6e535d41f94965495644310227b157e7b48a3f3c7acd1aaf77864c"
   );
 
-  const ddata = {
+  const data = {
     type: {
       move: "",
       stream: "create",
@@ -45,7 +55,7 @@ const getData = async (nonce: number) => {
     nonce: nonce,
   };
 
-  const data = {
+  const darta = {
     type: {
       move: "",
       stream: "delete",
@@ -95,14 +105,8 @@ const run = async () => {
     },
   });
 
-  const end = Date.now();
-
   const json = await res.json();
 
-  const elapsedSeconds = (end - start) / 1000;
-  const requestsPerSecond = 1 / elapsedSeconds;
-
-  console.log(`Requests per second: ${requestsPerSecond.toFixed(2)}`);
   console.log("response : ", json);
 };
 

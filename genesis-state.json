@@ -1,27 +1,6 @@
 {
   "state": {
     "users": [
-      {
-        "address": "0x8C6De00BE37d5fbE39056a88EdF9E66B66cCecaA",
-        "staticBalance": 10000000000,
-        "netFlow": 0,
-        "lastUpdate": 0,
-        "streams": []
-      },
-      {
-        "address": "0xa0063CCa4c2F9aDf58cA99f11010aB5Ab9d22D32",
-        "staticBalance": 200000000000,
-        "netFlow": 0,
-        "lastUpdate": 0,
-        "streams": []
-      },
-      {
-        "address": "0x73f843E9bCE620DF3BEf5d3A53076c14C131A7d0",
-        "staticBalance": 300000000000,
-        "netFlow": 0,
-        "lastUpdate": 0,
-        "streams": []
-      }
     ],
     "localTimestamp": 0
   }

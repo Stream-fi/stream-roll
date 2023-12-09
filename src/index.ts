@@ -78,14 +78,48 @@ app.use(bodyParser.json());
 const { actions, state } = await rollup();
 
 app.get("/", (req: Request, res: Response) => {
-  res.send({ allAccounts: state.get().state.getState() });
+  // res.send({ allState: state.get().state.getState() });
+  // return a nice HTML page with the state
+  const allState = state.get().state.getState();
+  let html = "<body><h1>FlowUp State</h1>";
+  html += "<h2>Current localTimestamp: " + allState.localTimestamp + "</h2>";
+  // add some CSS for the table so it's more digestible
+  html += "<style>th {padding: 0px 15px} td {border: 1px solid black; padding: 5px; text-align:right}</style>";
+  html += "<table>";
+  html += "<tr><th>Address</th><th>BALANCE</th><th>Static Balance</th><th>Net Flow</th><th>Last Update</th><th>Liquidation Time</th><th>Streams</th></tr>";
+  allState.users.forEach((user) => {
+    html += "<tr>";
+    let formattedAddress = user.address.slice(0, 4) + '...' + user.address.slice(-4);
+    html += "<td>" + formattedAddress + "</td>";
+    html += "<td>" + (user.staticBalance + user.netFlow * (allState.localTimestamp - user.lastUpdate)) + "</td>";
+    html += "<td>" + user.staticBalance + "</td>";
+    html += "<td>" + user.netFlow + "</td>";
+    html += "<td>" + user.lastUpdate + "</td>";
+    html += "<td>" + user.liquidationTime + "</td>";
+    html += "<td>";
+    if(user.streams.length > 0){
+      // add a subtable for streams
+      html += "<table><tr><th>to</th><th>flowRate</th><th>startTime</th></tr>";
+      user.streams.forEach((stream) => {
+        let formattedAddress = stream.to.slice(0, 4) + '...' + stream.to.slice(-4);
+        html += "<tr><td>" + formattedAddress + "</td><td>" + stream.flowRate + "</td><td>" + stream.startTime + "</td></tr>";
+      }),
+      html += "</table>";
+    };
+    html += "</td>";
+    html += "</tr>";
+  }
+  );
+  html += "</table>";
+  html += "</body>";
+  res.send(html);
 });
 
 // get endpoint for getting the state of a particular user
 app.get("/:address", (req: Request, res: Response) => {
   const address = req.params.address;
-  const allAccounts = state.get().state.getState();
-  const user = allAccounts.users.find((user) => user.address === address);
+  const allState = state.get().state.getState();
+  const user = allState.users.find((user) => user.address === address);
   if (user) {
     const balance = user?.staticBalance + user?.netFlow * (Math.ceil((Date.now())/1000) - user?.lastUpdate);
     let result = {...user, balance};
@@ -104,8 +138,11 @@ app.post("/", async (req: Request, res: Response) => {
   }
 
   try {
+    //const actualTimestamp = Math.ceil((Date.now())/1000);
     console.log(req.body);
-    let newObj = { ...req.body.payload, actualTimestamp: Math.ceil((Date.now())/1000) };
+    //console.log("CURRENT TIME: ", actualTimestamp);
+    let actualTimestamp = req.body.payload.actualTimestamp;
+    let newObj = { ...req.body.payload, actualTimestamp};
     req.body.payload = newObj;
     console.log(req.body);
     const newAction = schema.newAction(req.body);
@@ -119,11 +156,3 @@ app.post("/", async (req: Request, res: Response) => {
 app.listen(3000, () => {
   console.log("listening on port 3000");
 });
-
-// actionEventsEmitter.on(ActionEvents.SUBMIT_ACTION, (data) => {
-//   console.log("submit_action - Event triggered : ", data.payload);
-// });
-
-// executorEventsEmitter.on(ExecutorEvents.EXECUTE_SINGLE, (data) => {
-//   console.log("execute_single - Event triggered : ", data);
-// });
