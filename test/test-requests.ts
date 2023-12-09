@@ -3,25 +3,63 @@ import { stackrConfig } from "../stackr.config";
 import { ActionSchema } from "@stackr/stackr-js";
 
 const actionSchemaType = {
-  type: "String",
   from: "String",
-  to: "String",
-  amount: "Uint",
+  type: {
+    move: "String",
+    stream: "String",
+  },
+  params: {
+    move: {
+      amount: "Uint",
+    },
+    stream: {
+      flowRate: "Uint",
+    },
+    to: "String",
+  },
   nonce: "Uint",
 };
 
-const actionInput = new ActionSchema("update-keeper", actionSchemaType);
+const actionInput = new ActionSchema("update-flowup", actionSchemaType);
 
 const getData = async (nonce: number) => {
   const wallet = new ethers.Wallet(
-    "9833eb6296efad8ca93aad767da40b7eb240511ccf9b8346ef8d1f82e30638bd"
+    "8bc97316dc6e535d41f94965495644310227b157e7b48a3f3c7acd1aaf77864c"
   );
 
-  const data = {
-    type: "mint",
+  const ddata = {
+    type: {
+      move: "",
+      stream: "create",
+    },
     from: wallet.address,
-    to: "",
-    amount: 20,
+    params: {
+      move: {
+        amount: 0,
+      },
+      stream: {
+        flowRate: 1,
+      },
+      to: "0x73f843E9bCE620DF3BEf5d3A53076c14C131A7d0",
+    },
+    nonce: nonce,
+  };
+
+  const data = {
+    type: {
+      move: "",
+      stream: "delete",
+    },
+    from: wallet.address,
+    params: {
+      move: {
+        amount: 0,
+      },
+      stream: {
+        flowRate: 0,
+      },
+      to: "0x73f843E9bCE620DF3BEf5d3A53076c14C131A7d0",
+    },
     nonce: nonce,
   };
 
@@ -49,23 +87,23 @@ const run = async () => {
   const start = Date.now();
   const payload = await getData(start);
 
-  // const res = await fetch("http://localhost:3000/", {
-  //   method: "POST",
-  //   body: payload,
-  //   headers: {
-  //     "Content-Type": "application/json",
-  //   },
-  // });
+  const res = await fetch("http://localhost:3000/", {
+    method: "POST",
+    body: payload,
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
 
-  // const end = Date.now();
+  const end = Date.now();
 
-  // const json = await res.json();
+  const json = await res.json();
 
-  // const elapsedSeconds = (end - start) / 1000;
-  // const requestsPerSecond = 1 / elapsedSeconds;
+  const elapsedSeconds = (end - start) / 1000;
+  const requestsPerSecond = 1 / elapsedSeconds;
 
-  // console.log(`Requests per second: ${requestsPerSecond.toFixed(2)}`);
-  // console.log("response : ", json);
+  console.log(`Requests per second: ${requestsPerSecond.toFixed(2)}`);
+  console.log("response : ", json);
 };
 
 // function delay(ms: number) {

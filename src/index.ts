@@ -2,7 +2,7 @@ import { ActionSchema, FIFOStrategy, MicroRollup } from "@stackr/stackr-js";
 import bodyParser from "body-parser";
 import express, { Request, Response } from "express";
 import { stackrConfig } from "../stackr.config";
-import { KeeperNetwork, keeperSTF } from "./state";
+import { FlowUpNetwork, flowupSTF } from "./state";
 import { StateMachine } from "@stackr/stackr-js/execution";
 const cors = require("cors");
 
@@ -10,43 +10,60 @@ const cors = require("cors");
 import * as genesisState from "../genesis-state.json";
 
 const rollup = async () => {
-  const keeperFsm = new StateMachine({
-    state: new KeeperNetwork(genesisState.state),
-    stf: keeperSTF,
+  const flowupFsm = new StateMachine({
+    state: new FlowUpNetwork(genesisState.state),
+    stf: flowupSTF,
   });
 
   const actionSchemaType = {
-    type: "String",
     from: "String",
-    to: "String",
-    amount: "Uint",
+    type: {
+      move: "String",
+      stream: "String",
+    },
+    params: {
+      move: {
+        amount: "Uint",
+      },
+      stream: {
+        flowRate: "Uint",
+      },
+      to: "String",
+    },
     nonce: "Uint",
   };
 
-  const actionInput = new ActionSchema("update-keeper", actionSchemaType);
+  // {
+  //   from: string;
+  //   type: {
+  //     move?: "mint" | "burn" | "transfer";
+  //     stream?: "create" | "update" | "delete";
+  //   };
+  //   params:{
+  //     move?: {
+  //       amount: number;
+  //     };
+  //     stream?: {
+  //       flowRate?: number;
+  //     };
+  //     to: string;
+  //   }
+  //   nonce: number;
+  //   actualTimestamp: number; // this is the timestamp of the block that the action is included in
+  // }
+
+  const actionInput = new ActionSchema("update-flowup", actionSchemaType);
 
   const buildStrategy = new FIFOStrategy();
 
   const { state, actions, events } = await MicroRollup({
     config: stackrConfig,
-    useState: keeperFsm,
+    useState: flowupFsm,
     useAction: actionInput,
     useBuilder: { strategy: buildStrategy, autorun: true },
     useSyncer: { autorun: true },
   });
-
-  // events.action.onEvent(ActionEvents.SUBMIT_ACTION, (action) => {
-  //   console.log("action submitted", action);
-  // });
-
-  // events.batcher.onEvent(BatcherEvents.BATCH_ACTION, (batch) => {
-  //   console.log("action batched", batch);
-  // });
-
-  // events.builder.onEvent(BuilderEvents.ORDER_BATCH, (batch) => {
-  //   console.log("action batch ordered", batch);
-  // });
-
+  
   return { state, actions };
 };
 
@@ -64,8 +81,22 @@ app.get("/", (req: Request, res: Response) => {
   res.send({ allAccounts: state.get().state.getState() });
 });
 
+// get endpoint for getting the state of a particular user
+app.get("/:address", (req: Request, res: Response) => {
+  const address = req.params.address;
+  const allAccounts = state.get().state.getState();
+  const user = allAccounts.users.find((user) => user.address === address);
+  if (user) {
+    const balance = user?.staticBalance + user?.netFlow * (Math.ceil((Date.now())/1000) - user?.lastUpdate);
+    let result = {...user, balance};
+    res.send({ result });
+  } else {
+    res.status(404).send({ message: "user not found" });
+  }
+});
+
 app.post("/", async (req: Request, res: Response) => {
-  const schema = actions.getSchema("update-keeper");
+  const schema = actions.getSchema("update-flowup");
 
   if (!schema) {
     res.status(400).send({ message: "error" });
@@ -73,6 +104,10 @@ app.post("/", async (req: Request, res: Response) => {
   }
 
   try {
+    console.log(req.body);
+    let newObj = { ...req.body.payload, actualTimestamp: Math.ceil((Date.now())/1000) };
+    req.body.payload = newObj;
+    console.log(req.body);
     const newAction = schema.newAction(req.body);
     const ack = await actions.submit(newAction);
     res.status(201).send({ ack });

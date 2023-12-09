@@ -21,14 +21,14 @@ const stackrConfig: StackrConfig = {
     accounts: [
       {
         privateKey:
-          "5af06e43a75c9b82bb469f050a882f33aa9d628453cd2d2f31d0ca822e38cc6f",
+          "8bc97316dc6e535d41f94965495644310227b157e7b48a3f3c7acd1aaf77864c", // address: 0x8C6De00BE37d5fbE39056a88EdF9E66B66cCecaA
         purpose: KeyPurpose.BATCH,
         scheme: SignatureScheme.ECDSA,
       },
     ],
   },
   domain: {
-    name: "KeeperNetwork",
+    name: "FlowUp",
     version: "1",
     chainId: 69420,
     verifyingContract: deployment.app_inbox,
