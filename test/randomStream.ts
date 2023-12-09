@@ -19,24 +19,19 @@ const activeWallets: HDNodeWallet[] = [];
 
 const run = async () => {
   // fetch all the wallets
-  for (let i = 0; i < 5; i++) {
-    activeWallets.push(await fundRandomWallet(1000));
+  for (let i = 0; i < 4; i++) {
+    activeWallets.push(await fundRandomWallet(400));
   }
-
-  const from = activeWallets[Math.floor(Math.random() * activeWallets.length)];
-  // pick a random wallet
-  const to = activeWallets[Math.floor(Math.random() * activeWallets.length)];
+  const from = activeWallets[0];
 
   let request;
-  try{
-    request = await signAndSend(from, createStream(from.address, to.address, Math.floor(Math.random() * 100)));
-  } catch (e) {
-    console.log(e);
-    request = await signAndSend(from, updateStream(from.address, to.address, Math.floor(Math.random() * 100)));
-  }
+  request = await signAndSend(from, createStream(from.address, activeWallets[1].address, 50));
+  request = await signAndSend(from, createStream(from.address, activeWallets[2].address, 50));
+  request = await signAndSend(from, createStream(from.address, activeWallets[3].address, 50));
+  
   console.log(request);
   
-  for(let i = 0; i < 200; i++) {
+  for(let i = 0; i < 10; i++) {
     await signAndSend(from, kick(from.address));
     await delay(1000);
   }

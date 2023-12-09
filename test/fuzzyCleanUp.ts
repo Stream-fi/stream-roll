@@ -8,36 +8,37 @@ import {
   transfer,
   createStream,
   updateStream,
+  setStream,
   deleteStream,
   signAndSend,
-  fundRandomWallet
+  fundRandomWallet,
+  hexStrings
 } from "./txTypes";
 import { HDNodeWallet } from "ethers";
+import { Wallet } from "ethers";
 
-const activeWallets: HDNodeWallet[] = [];
+const activeWallets: Wallet[] = [];
 
 const run = async () => {
 
-  for (let i = 0; i < 10; i++) {
-    activeWallets.push(await fundRandomWallet(1000));
+  for (let i = 0; i < 5; i++) {
+    activeWallets.push(await fundRandomWallet(hexStrings[i], 1000));
   }
 
-  for (let i = 0; i < 50; i++) {
+  for (let i = 0; i < 100; i++) {
     // pick a random wallet
     const from = activeWallets[Math.floor(Math.random() * activeWallets.length)];
     // pick a random wallet
-    const to = activeWallets[Math.floor(Math.random() * activeWallets.length)];
+    let to;
+    do {
+      to = activeWallets[Math.floor(Math.random() * activeWallets.length)];
+    } while (to.address === from.address);
 
-    let res;
-    try{
-      res = await signAndSend(from, createStream(from.address, to.address, Math.floor(Math.random() * 100)));
-    } catch (e) {
-      console.log(e);
-      res = await signAndSend(from, updateStream(from.address, to.address, Math.floor(Math.random() * 100)));
-    }
+    const res = await signAndSend(from, setStream(from.address, to.address, Math.floor(Math.random() * 50)));
+    console.log("$$: I think I just opened a stream, from: ", from.address, " to: ", to.address);
     console.log(res);
     
-    delay(1000);
+    await delay(2500);
   }
 };
 

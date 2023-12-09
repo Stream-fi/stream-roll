@@ -29,7 +29,7 @@ export interface FlowUpActionInput {
   from: string;
   type: {
     move?: "mint" | "burn" | "transfer";
-    stream?: "create" | "update" | "delete";
+    stream?: "create" | "update" | "set" | "delete";
   };
   params:{
     move?: {
@@ -120,11 +120,13 @@ export const flowupSTF: STF<FlowUpNetwork, FlowUpActionInput> = {
         (stream) => stream.to === inputs.params.to
       );
       if (streamIndex !== -1) {
-        throw new Error("Stream already exists");
+       console.log("$$: Stream already exists");
+       throw new Error("Stream already exists");
       }
       // check that sender has sufficient balance
       if (balanceOf(senderIndex) < flowRate) {
-        throw new Error("Insufficient balance");
+       console.log("$$: Insufficient balance");
+       throw new Error("Insufficient balance");
       };
 
       // settle sender account
@@ -144,10 +146,11 @@ export const flowupSTF: STF<FlowUpNetwork, FlowUpActionInput> = {
     function deleteStream(senderIndex: number, receiverIndex: number) {
       // check that stream exists
       const streamIndex = newState.users[senderIndex].streams.findIndex(
-        (stream) => stream.to === inputs.params.to
+        (stream) => stream.to === newState.users[receiverIndex].address
       );
       if (streamIndex === -1) {
-        throw new Error("Stream does not exist");
+       console.log("$$: Stream does not exist");
+       throw new Error("Stream does not exist");
       }
       // settle sender account
       settleAccount(senderIndex);
@@ -159,39 +162,47 @@ export const flowupSTF: STF<FlowUpNetwork, FlowUpActionInput> = {
       updateNetFlow(receiverIndex, -flowRate);
       // delete stream from database
       newState.users[senderIndex].streams.splice(streamIndex, 1);
+
     }
     function updateLiquidationTimestamp(index: number) {
       const account = newState.users[index];
       const netFlow = account.netFlow;
       const balance = balanceOf(index);
-      let liquidationTime = newState.users[index].liquidationTime;
+      let liquidationTime;
       if (netFlow < 0){
         // user is losing money, set liquidation time to the time when balance will be 0
         liquidationTime = newState.localTimestamp + Math.floor(balance / -netFlow);
-        newState.users[index].liquidationTime = liquidationTime;
       }
+      else {
+        // user is gaining money, set liquidation time to a high value
+        liquidationTime = 10000000000000;
+      }
+      newState.users[index].liquidationTime = liquidationTime;
       if(liquidationTime < 0) {
-        throw new Error("Liquidation time cannot be negative");
+       console.log("$$: Liquidation time cannot be negative");
+       throw new Error("Liquidation time cannot be negative");
       }
     }
     
     // here we should check that we can move time forward to the actualTimestamp
     // if we can't, we have to cleanup the state first
-    console.log("localTimestamp: ", newState.localTimestamp);
-    console.log("actualTimestamp: ", inputs.actualTimestamp);
+    console.log("$$: localTimestamp: ", newState.localTimestamp);
+    console.log("$$: actualTimestamp: ", inputs.actualTimestamp);
     // in theory, actualTimestamp should always be greater than localTimestamp
     if(newState.localTimestamp > inputs.actualTimestamp) {
-      throw new Error("Cannot move time backwards");
+     console.log("$$: Cannot move time backwards");
+     throw new Error("Cannot move time backwards");
     }
     // if actualTimestamp is greater than the liquidation time of the first account in the array, we have to cleanup the state
     do {
-      console.log("liquidation time: ", newState.users[0].liquidationTime);
+      console.log("$$: liquidation time: ", newState.users[0].liquidationTime);
       if(newState.users[0].liquidationTime < inputs.actualTimestamp) {
-        console.log("INSOLVENT ACCOUNT");
-        console.log("insolvent account: ", newState.users[0].address, " liquidation time: ", newState.users[0].liquidationTime);
+        console.log("$$: INSOLVENT ACCOUNT");
+        console.log("$$: insolvent account: ", newState.users[0].address, " liquidation time: ", newState.users[0].liquidationTime);
         // closes all of the streams of the account
         newState.users[0].streams.forEach((stream) => {
           let toIndex = findOrCreateUser(stream.to);
+          console.log("$$: about to liquidate stream index: ", toIndex, " to: ", newState.users[toIndex].address);
           deleteStream(0, toIndex);
           updateLiquidationTimestamp(toIndex);
         });
@@ -203,7 +214,7 @@ export const flowupSTF: STF<FlowUpNetwork, FlowUpActionInput> = {
 
     newState.localTimestamp = inputs.actualTimestamp;
 
-    if(inputs.type.stream == "create" || inputs.type.stream == "update" || inputs.type.stream == "delete") {
+    if(inputs.type.stream == "create" || inputs.type.stream == "update" || inputs.type.stream == "delete" || inputs.type.stream == "set") {
       const flowRate = inputs.params.stream?.flowRate || 0;
       if (inputs.type.stream == "create") {
         sendStream(senderIndex, receiverIndex, flowRate);
@@ -213,20 +224,33 @@ export const flowupSTF: STF<FlowUpNetwork, FlowUpActionInput> = {
         sendStream(senderIndex, receiverIndex, flowRate);
       } else if (inputs.type.stream == "delete") {
         deleteStream(senderIndex, receiverIndex);
+      } else {//if(inputs.type.stream == "set") {
+        console.log("$$: SETTING STREAM");
+        // check that stream exists
+        const streamIndex = newState.users[senderIndex].streams.findIndex(
+          (stream) => stream.to === newState.users[receiverIndex].address
+        );
+        if (streamIndex === -1) {
+          sendStream(senderIndex, receiverIndex, flowRate);
+        } else {
+          deleteStream(senderIndex, receiverIndex);
+          sendStream(senderIndex, receiverIndex, flowRate);
+        }
       }
     }
     else if(inputs.type.move == "mint" || inputs.type.move == "burn" || inputs.type.move == "transfer") {
       // @ts-ignore
       let amount = inputs.params.move.amount;
-      console.log("AMOUNT: ", amount);
+      console.log("$$: AMOUNT: ", amount);
       if (inputs.type.move == "mint") {
-        console.log("MINTEEEING, ", amount, " to ", inputs.from, " index: ", senderIndex);
+        console.log("$$: MINTEEEING, ", amount, " to ", inputs.from, " index: ", senderIndex);
         newState.users[senderIndex].staticBalance += amount;
       } else if(inputs.type.move == "burn") {
         newState.users[senderIndex].staticBalance -= amount;
       } else if(inputs.type.move == "transfer") {
         if (balanceOf(senderIndex) < amount) {
-          throw new Error("Insufficient balance");
+         console.log("$$: Insufficient balance");
+         throw new Error("Insufficient balance");
         }
         newState.users[senderIndex].staticBalance -= amount;
         newState.users[receiverIndex].staticBalance += amount!;

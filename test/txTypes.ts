@@ -2,7 +2,15 @@ import { ethers } from "ethers";
 import { stackrConfig } from "../stackr.config";
 import { ActionSchema } from "@stackr/stackr-js";
 import { HDNodeWallet } from "ethers";
+import { Wallet } from "ethers";
 
+export const hexStrings = [
+    '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdea',
+    '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdeb',
+    '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdec',
+    '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcded',
+    '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdee'
+  ];
 export const actionSchemaType = {
     from: "String",
     type: {
@@ -23,9 +31,9 @@ export const actionSchemaType = {
 };
 const actionInput = new ActionSchema("update-flowup", actionSchemaType);
 
-export const fundRandomWallet = async (amount: number) => { 
+export const fundRandomWallet = async (pvt:string, amount: number) => { 
     // create a random wallet
-    const wallet = ethers.Wallet.createRandom();
+    const wallet = new ethers.Wallet(pvt);
     console.log("wallet created: ", wallet.address);
     // fund it with some tokens
     await signAndSend(wallet, mint(wallet.address, amount));
@@ -147,6 +155,25 @@ export const updateStream = (from: string, to: string, flowRate: number) => ({
     actualTimestamp: Math.ceil(Date.now() / 1000)
 });
 
+export const setStream = (from: string, to: string, flowRate: number) => ({
+    from,
+    type: {
+        move: "",
+        stream: "set",
+    },
+    params: {
+        move: {
+            amount: 0,
+        },
+        stream: {
+            flowRate,
+        },
+        to,
+    },
+    nonce: Date.now(),
+    actualTimestamp: Math.ceil(Date.now() / 1000)
+});
+
 export const deleteStream = (from: string, to: string) => ({
     from,
     type: {
@@ -166,7 +193,7 @@ export const deleteStream = (from: string, to: string) => ({
     actualTimestamp: Math.ceil(Date.now() / 1000)
 });
 
-export const signAndSend = async (from: HDNodeWallet, data: any) => {
+export const signAndSend = async (from: Wallet, data: any) => {
     const sign = await from.signTypedData(
       stackrConfig.domain,
       actionInput.EIP712TypedData.types,
