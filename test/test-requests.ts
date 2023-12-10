@@ -2,76 +2,26 @@ import { ethers } from "ethers";
 import { stackrConfig } from "../stackr.config";
 import { ActionSchema } from "@stackr/stackr-js";
 import {
-  actionSchemaType,
-  mint,
   burn,
   transfer,
   createStream,
   updateStream,
+  actionSchemaType,
+  setStream,
   deleteStream,
+  signAndSend,
+  fundRandomWallet,
+  hexStrings,
 } from "./txTypes";
-import { HDNodeWallet } from "ethers";
 
-const actionSchemaType = {
-  from: "String",
-  type: {
-    move: "String",
-    stream: "String",
-  },
-  params: {
-    move: {
-      amount: "Uint",
-    },
-    stream: {
-      flowRate: "Uint",
-    },
-    to: "String",
-  },
-  nonce: "Uint",
-};
-
-const actionInput = new ActionSchema("update-flowup", actionSchemaType);
+const actionInput = new ActionSchema("update-keeper", actionSchemaType);
 
 const getData = async (nonce: number) => {
   const wallet = new ethers.Wallet(
-    "8bc97316dc6e535d41f94965495644310227b157e7b48a3f3c7acd1aaf77864c"
+    "5af06e43a75c9b82bb469f050a882f33aa9d628453cd2d2f31d0ca822e38cc6f"
   );
 
-  const data = {
-    type: {
-      move: "",
-      stream: "create",
-    },
-    from: wallet.address,
-    params: {
-      move: {
-        amount: 0,
-      },
-      stream: {
-        flowRate: 1,
-      },
-      to: "0x73f843E9bCE620DF3BEf5d3A53076c14C131A7d0",
-    },
-    nonce: nonce,
-  };
-
-  const darta = {
-    type: {
-      move: "",
-      stream: "delete",
-    },
-    from: wallet.address,
-    params: {
-      move: {
-        amount: 0,
-      },
-      stream: {
-        flowRate: 0,
-      },
-      to: "0x73f843E9bCE620DF3BEf5d3A53076c14C131A7d0",
-    },
-    nonce: nonce,
-  };
+  const data = burn(wallet.address, 100);
 
   console.log(data);
 
@@ -97,7 +47,7 @@ const run = async () => {
   const start = Date.now();
   const payload = await getData(start);
 
-  const res = await fetch("http://localhost:3000/", {
+  const res = await fetch("http://localhost:3000/burn", {
     method: "POST",
     body: payload,
     headers: {
@@ -105,15 +55,7 @@ const run = async () => {
     },
   });
 
-  const json = await res.json();
-
-  console.log("response : ", json);
+  console.log(res);
 };
-
-// function delay(ms: number) {
-//   return new Promise((resolve) => setTimeout(resolve, ms));
-// }
-
-// let sent = 0;
 
 await run();

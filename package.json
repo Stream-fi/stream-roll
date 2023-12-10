@@ -5,6 +5,10 @@
   "devDependencies": {
     "bun-types": "latest"
   },
+  "scripts": {
+    "serve": "stackr compile && bun run src/index.ts",
+    "clean:serve": "rm db.sqlite && stackr compile && bun run src/index.ts"
+  },
   "peerDependencies": {
     "typescript": "^5.0.0"
   },
