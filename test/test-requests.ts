@@ -18,7 +18,7 @@ const actionInput = new ActionSchema("update-keeper", actionSchemaType);
 
 const getData = async (nonce: number) => {
   const wallet = new ethers.Wallet(
-    "5af06e43a75c9b82bb469f050a882f33aa9d628453cd2d2f31d0ca822e38cc6f"
+    "<TEST_OPERATOR_KEY>"
   );
 
   const data = burn(wallet.address, 100);
