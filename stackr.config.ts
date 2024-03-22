@@ -28,7 +28,7 @@ const stackrConfig: StackrConfig = {
     ],
   },
   domain: {
-    name: "FlowUp",
+    name: "stream-roll",
     version: "1",
     chainId: 69420,
     verifyingContract: deployment.app_inbox,
