@@ -1,5 +1,5 @@
 {
-  "name": "counter",
+  "name": "stream-roll",
   "module": "index.ts",
   "type": "module",
   "devDependencies": {
