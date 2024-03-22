@@ -28,11 +28,11 @@ import { ethers } from "ethers";
 
 const rpcUrl = "https://goerli.base.org";
 const provider = new ethers.JsonRpcProvider(rpcUrl);
-const contractAddress = "0xDE18c74C753b7a96A24B995ac94222D2F7A4CCD8";
+const contractAddress = "<BRIDGE_CONTRACT_ADDRESS>";
 const myContract = new ethers.Contract(contractAddress, abi.abi, provider);
 
 const wallet = new ethers.Wallet(
-  "5af06e43a75c9b82bb469f050a882f33aa9d628453cd2d2f31d0ca822e38cc6f",
+  "<BRIDGE_SIGNER>",
   provider
 );
 
